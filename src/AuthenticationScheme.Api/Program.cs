@@ -34,11 +34,15 @@ builder.Services.AddSession(options =>
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
 });
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("IsAdmin",opt=>opt.RequireRole("admin"));
+});
 // builder.Services.AddApplication();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddInfastructureService(builder.Configuration);
 builder.Services.Configure<SmtpSetting>(builder.Configuration.GetSection("Smtp"));
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

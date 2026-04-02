@@ -30,6 +30,7 @@ new Claim(ClaimTypes.Email,"adbc@gmail.com")
 
       var CreateToken = new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor()
       {
+         Expires = new DateTime().AddMinutes(15),
          SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes("MySecretKeyASutoehntbohf;hf;oihoishf;oihedioufhuisdhfui")),
             SecurityAlgorithms.HmacSha256Signature),
          Claims = claimsIdentity,

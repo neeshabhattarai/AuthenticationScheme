@@ -1,17 +1,42 @@
+using System.Runtime.InteropServices.JavaScript;
 using AuthenticationScheme.Application.Extension;
 using AuthenticationScheme.Infastructure;
 using AuthenticationScheme.Service;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+ builder.Services.AddSwaggerGen(options =>
+{
+    options.AddSecurityDefinition("Authorization",new OpenApiSecurityScheme
+    {
+        Scheme = "Bearer",
+        Description =  "Please insert JWT with Bearer into field",
+        Type = SecuritySchemeType.Http
+    });
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Authorization"
+                },
+            },
+            new string[] {}
+        }
+    });
+});
 builder.Services.AddControllers();
+// builder.Services.AddHttpContextAccessor();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddAuthentication(options =>

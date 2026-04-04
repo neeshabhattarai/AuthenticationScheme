@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Routing;
+using QRCoder;
 
 namespace AuthenticationScheme.Controller;
 [ApiController]
@@ -121,8 +122,37 @@ return BadRequest(result.Errors);
 
         return BadRequest("Invalid OTP");
     }
+    [HttpGet("QRGenerator")]
+    [Authorize]
+    public async Task<IActionResult> QrCode()
+    {
+        var user=contextAccessor.HttpContext.User;
+        var userTest = await manager.FindByIdAsync(user.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        
+        var userClaims = user.Claims.ToList();
+        if (user==null)
+        {
+            return BadRequest("User not found");
+        }
+        if(userTest==null){throw new Exception("User not found");}
+        var token= await manager.GetAuthenticatorKeyAsync(userTest);
+        if (token == null)
+        {
+            await manager.ResetAuthenticatorKeyAsync(userTest);
+            token=await manager.GetAuthenticatorKeyAsync(userTest);
+        }
+        var email="nishabhattarai778@gmail.com";
+        var qrCodeUrl = $"otpauth://totp/MyApp:{email}?secret={token}&issuer=MyApp&digits=6";
+ var qrCoderGenerator=new QRCodeGenerator();
+ var qrCode=qrCoderGenerator.CreateQrCode(qrCodeUrl,QRCodeGenerator.ECCLevel.Q);
+ var byteCode=new PngByteQRCode(qrCode);
+ var graphics=byteCode.GetGraphic(20);
+ return File(graphics,"image/png");
+ 
 
+    }
     [HttpPost("MFA")]
+    [Authorize]
     public async Task<IActionResult> MFA()
     {
         var user=contextAccessor.HttpContext.User;
@@ -134,13 +164,76 @@ return BadRequest(result.Errors);
             return BadRequest("User not found");
         }
         if(userTest==null){throw new Exception("User not found");}
-       var token= await manager.GetAuthenticatorKeyAsync(userTest);
-       if (token == null)
+        var token= await manager.GetAuthenticatorKeyAsync(userTest);
+        if (token == null)
+        {
+            await manager.ResetAuthenticatorKeyAsync(userTest);
+            token=await manager.GetAuthenticatorKeyAsync(userTest);
+        }
+        return Ok(token);
+    }
+    [HttpGet("QR")]
+    [Authorize]
+    public async Task<IActionResult> QRCodeChecker([FromQuery]string code)
+    {
+        var user=contextAccessor.HttpContext.User;
+        var userTest = await manager.FindByIdAsync(user.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        
+        var userClaims = user.Claims.ToList();
+        if (user==null)
+        {
+            return BadRequest("User not found");
+        }
+        if(userTest==null){throw new Exception("User not found");}
+
+        var userVerified = await manager.VerifyTwoFactorTokenAsync(userTest, manager.Options.Tokens.AuthenticatorTokenProvider, code);
+        if (userVerified)
+        {
+            await manager.SetTwoFactorEnabledAsync(userTest, true);
+            return Ok("Thank you for verifying your OTP");
+        }
+        return BadRequest("Invalid OTP");
+    }
+
+    [HttpPost("LoginWithAuthenticator")]
+    public async Task<IActionResult> LoginWithAuthenticator([FromBody] User user,[FromQuery]string code)
+    {
+      var result=await signInManager.PasswordSignInAsync(user.Email, user.Password, false, false);
+      if (result.Succeeded)
+      {
+          return Ok("Thank you for logging in");
+      }
+      else
+      {
+          if (result.RequiresTwoFactor)
+          {
+              var users = await manager.FindByEmailAsync(user.Email);
+              var twoFactorResult = await manager.VerifyTwoFactorTokenAsync(users, manager.Options.Tokens.AuthenticatorTokenProvider, code);
+              if (twoFactorResult)
+              {
+                  await manager.SetTwoFactorEnabledAsync(users, true);
+
+                  return Ok("Thank you for logging in");
+              } 
+          }
+      }
+       return BadRequest("Invalid OTP"); 
+    }
+
+    [HttpPost("CheckMFA")]
+    public async Task<IActionResult> CheckMFA(string code)
+    {
+        var userClaim=contextAccessor.HttpContext.User;
+        var user=await manager.GetUserAsync(userClaim);
+       var result= await manager.VerifyTwoFactorTokenAsync(user, manager.Options.Tokens.AuthenticatorTokenProvider, code);
+       if (result)
        {
-           await manager.ResetAuthenticatorKeyAsync(userTest);
-           token=await manager.GetAuthenticatorKeyAsync(userTest);
+           return Ok("Thank you for verifying your OTP");
        }
-       return Ok(token);
+       else
+       {
+           return BadRequest("Invalid OTP");
+       }
     }
 
     [HttpGet("logout")]

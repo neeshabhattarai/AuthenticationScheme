@@ -242,6 +242,46 @@ return BadRequest(result.Errors);
          await signInManager.SignOutAsync();
          return Ok();
     }
+
+    [HttpGet]
+    [Route("LoginWithFacebook")]
+    public async Task<IActionResult> LoginWithFacebook()
+    {
+        var result = await signInManager.GetExternalAuthenticationSchemesAsync();
+        return Ok(result);
+    }
+
+    [HttpGet("AuthenticateWithFacebook")]
+    public async Task<IActionResult> AuthenticateWithFacebook()
+    {
+
+        var result = signInManager.ConfigureExternalAuthenticationProperties("Facebook",
+                Url.Action("FacebookLogin", "Users"));
+        return Challenge(result, "Facebook");
+        
+    }
+
+    [HttpGet("FacebookResponse")]
+    public async Task<IActionResult> FacebookLogin()
+    {
+        var result = await signInManager.GetExternalLoginInfoAsync();
+        if (result != null)
+        {
+            var email = result.Principal.Claims.FirstOrDefault(claim => claim.Type == ClaimTypes.Email)?.Value;
+            var userName = result.Principal.Claims.FirstOrDefault(claim => claim.Type == ClaimTypes.Name)?.Value;
+            if (email != null && userName != null)
+            {
+                await signInManager.SignInAsync(new Infastructure.Entities.User
+                {
+                    Email = email,
+                    UserName = userName
+                }, false, null);
+                return Ok("Thank you for logging in");
+            }
+        }
+        return BadRequest("Invalid Facebook");
+    }
+
     public class  User
     {
         public string Email { get; set; }

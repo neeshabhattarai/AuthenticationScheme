@@ -12,6 +12,11 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddAuthentication().AddFacebook(opt =>
+{
+    opt.AppId = builder.Configuration.GetValue<string>("Application[AppId]");
+    opt.AppSecret = builder.Configuration.GetValue<string>("Application[AppSecret]");
+});
  builder.Services.AddSwaggerGen(options =>
 {
     options.AddSecurityDefinition("Authorization",new OpenApiSecurityScheme
